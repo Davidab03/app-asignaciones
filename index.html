@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Panel Concentrix</title>
+    <!-- Cargamos los estilos de Streamlit -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.css"/>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f0f2f6; }
+    </style>
+  </head>
+  <body>
+    <!-- Aquí es donde aparecerá la magia -->
+    <div id="root"></div>
+    
+    <!-- Cargamos el motor de Python para el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/@stlite/mountable@0.31.1/build/stlite.js"></script>
+    <script>
+      stlite.mount({
+        // Le decimos qué librerías descargar al inicio
+        requirements: ["openpyxl", "pandas"],
+        // Inyectamos todo tu código de Python aquí mismo
+        mainScriptData: `
+import streamlit as st
+import pandas as pd
+
+st.set_page_config(page_title="Panel Concentrix", page_icon="📊", layout="wide")
+
+st.title("📊 Panel Interactivo de Asignaciones")
+st.write("Sube tu archivo de Excel descargado para generar los reportes y promedios al instante.")
+
+archivo_subido = st.file_uploader("Arrastra aquí tu base de datos (.xlsx)", type=["xlsx"])
+
+if archivo_subido is not None:
+    with st.spinner('Procesando datos en tu navegador... 🚀'):
+        df = pd.read_excel(archivo_subido)
+    
+    st.success("¡Archivo cargado con éxito!")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="Total de Filas", value=len(df))
+    with col2:
+        st.metric(label="Total de Columnas", value=len(df.columns))
+    with col3:
+        st.metric(label="Estado", value="Procesado")
+
+    st.markdown("---")
+    
+    st.subheader("Resumen por Grupo")
+    try:
+        tabla_dinamica = df.groupby('GROUP_NAME').size().reset_index(name='Total Asignaciones')
+        st.dataframe(tabla_dinamica, use_container_width=True)
+    except Exception as e:
+        st.warning("Asegúrate de que tu Excel tenga una columna llamada 'GROUP_NAME'.")
+        
+    st.subheader("Base de Datos Exploratoria")
+    st.dataframe(df)
+else:
+    st.info("Esperando el archivo. Por favor, sube tu Excel para comenzar.")
+        `
+      }, document.getElementById("root"));
+    </script>
+  </body>
+</html>
