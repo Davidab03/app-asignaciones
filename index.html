@@ -51,9 +51,14 @@ st.markdown("---")
 archivo_subido = st.file_uploader("📂 Arrastra aquí tu base de datos (.xlsx)", type=["xlsx"])
 
 if archivo_subido is not None:
-    with st.spinner('Procesando datos de Concentrix... 🚀'):
+    # 1. INDICADOR VISUAL DE CARGA MEJORADO
+    mensaje_carga = st.info("⏳ Leyendo el Excel y construyendo tableros... Por favor, no cierres la pestaña (puede tomar unos segundos).")
+    
+    with st.spinner('Procesando datos en el navegador... 🚀'):
         df = pd.read_excel(archivo_subido)
     
+    # Borramos el mensaje de carga una vez que termina
+    mensaje_carga.empty()
     st.success("✅ ¡Archivo cargado con éxito!")
     
     col1, col2, col3 = st.columns(3)
@@ -68,11 +73,11 @@ if archivo_subido is not None:
     
     st.subheader("🔍 Filtros de Búsqueda Interactivos")
     
-    cols_requeridas = ['GROUP_NAME', 'COURSE_NAME', 'COURSE_STATUS']
+    # Asegurarnos de que las columnas de la tabla dinámica también existan
+    cols_requeridas = ['GROUP_NAME', 'COURSE_NAME', 'COURSE_STATUS', 'USER_TEAM_NAME', 'USER_LDAP']
     cols_presentes = [c for c in cols_requeridas if c in df.columns]
     
-    if len(cols_presentes) == 3:
-        # Creamos 3 columnas visuales para los filtros
+    if len(cols_presentes) == len(cols_requeridas):
         col_f1, col_f2, col_f3 = st.columns(3)
         
         with col_f1:
@@ -84,7 +89,6 @@ if archivo_subido is not None:
             status_seleccionados = st.multiselect("📊 Estado del Curso:", lista_status, default=lista_status)
             
         with col_f3:
-            # Transformamos el buscador de texto a un buscador desplegable inteligente
             lista_cursos = sorted(df['COURSE_NAME'].dropna().astype(str).unique())
             cursos_seleccionados = st.multiselect(
                 "📝 Buscar Curso (Escribe para filtrar):", 
@@ -93,15 +97,11 @@ if archivo_subido is not None:
                 placeholder="Selecciona o escribe un curso..."
             )
             
-        # --- LÓGICA DE FILTRADO INSTANTÁNEO ---
-        # Filtramos primero por BU y Estado
         df_filtrado = df[
             (df['GROUP_NAME'].isin(bu_seleccionados)) & 
             (df['COURSE_STATUS'].isin(status_seleccionados))
         ]
         
-        # Si el usuario eligió cursos específicos, aplicamos el filtro. 
-        # Si lo dejó en blanco, muestra todos los cursos de esa BU/Estado.
         if cursos_seleccionados:
             df_filtrado = df_filtrado[df_filtrado['COURSE_NAME'].isin(cursos_seleccionados)]
             
@@ -111,7 +111,7 @@ if archivo_subido is not None:
         if len(df_filtrado) > 0:
             st.subheader("📈 Resumen por Estado del Curso")
             
-            col_grafica, col_tabla = st.columns([2, 1])
+            col_grafica, col_espacio = st.columns([2, 1])
             
             with col_grafica:
                 datos_grafica = df_filtrado.groupby('COURSE_STATUS').size().reset_index(name='Total')
@@ -133,23 +133,38 @@ if archivo_subido is not None:
                     showlegend=False
                 )
                 st.plotly_chart(fig, use_container_width=True)
+            
+            # 2. LA NUEVA TABLA DINÁMICA (REPLICA DE EXCEL)
+            st.markdown("---")
+            st.subheader("📋 Tabla Dinámica: Cursos y Equipos vs Estado")
+            
+            try:
+                # Replicamos exactamente la configuración de tus imágenes
+                tabla_dinamica = pd.pivot_table(
+                    df_filtrado,
+                    values='USER_LDAP',                 # La columna que contamos
+                    index=['COURSE_NAME', 'USER_TEAM_NAME'],  # Las filas anidadas
+                    columns=['COURSE_STATUS'],          # Las columnas
+                    aggfunc='count',                    # Qué operación hacer (Cuenta)
+                    fill_value=0,                       # Reemplazar espacios vacíos con 0
+                    margins=True,                       # Mostrar Totales
+                    margins_name='Grand Total'          # Nombre de la columna de totales
+                )
                 
-            with col_tabla:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.dataframe(datos_grafica, use_container_width=True, hide_index=True)
+                # Mostramos la tabla dinámica
+                st.dataframe(tabla_dinamica, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error al generar la tabla dinámica: {e}")
                 
         else:
             st.warning("⚠️ No hay registros que coincidan con los filtros seleccionados.")
             
         st.markdown("---")
-        st.subheader("🗃️ Base de Datos (Filtrada)")
-        
-        # Streamlit 1.29+ incluye filtros nativos en las columnas de la tabla.
-        # Usa la lupa en el encabezado de la tabla para filtros rápidos adicionales.
+        st.subheader("🗃️ Base de Datos (Cruda Filtrada)")
         st.dataframe(df_filtrado, use_container_width=True)
         
     else:
-        st.error(f"⚠️ Faltan columnas en tu Excel. El reporte necesita: {', '.join(cols_requeridas)}")
+        st.error(f"⚠️ Faltan columnas en tu Excel. El reporte necesita exactamente estas columnas: {', '.join(cols_requeridas)}")
         st.dataframe(df)
 
 else:
