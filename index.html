@@ -23,13 +23,13 @@ import pandas as pd
 
 st.set_page_config(page_title="Panel Concentrix", page_icon="📊", layout="wide")
 
-st.title("📊 Panel Interactivo de Asignaciones")
-st.write("Sube tu archivo de Excel descargado para generar los reportes y promedios al instante.")
+st.title("📊 Seguimiento de LH")
+st.write("Sube el archivo de Excel descargado para generar los reportes.")
 
 archivo_subido = st.file_uploader("Arrastra aquí tu base de datos (.xlsx)", type=["xlsx"])
 
 if archivo_subido is not None:
-    with st.spinner('Procesando datos en tu navegador... 🚀'):
+    with st.spinner('Procesando datos... 🚀'):
         df = pd.read_excel(archivo_subido)
     
     st.success("¡Archivo cargado con éxito!")
@@ -44,17 +44,17 @@ if archivo_subido is not None:
 
     st.markdown("---")
     
-    st.subheader("Resumen por Grupo")
+    st.subheader("Resumen por BU")
     try:
         tabla_dinamica = df.groupby('GROUP_NAME').size().reset_index(name='Total Asignaciones')
         st.dataframe(tabla_dinamica, use_container_width=True)
     except Exception as e:
         st.warning("Asegúrate de que tu Excel tenga una columna llamada 'GROUP_NAME'.")
         
-    st.subheader("Base de Datos Exploratoria")
+    st.subheader("Base de datos")
     st.dataframe(df)
 else:
-    st.info("Esperando el archivo. Por favor, sube tu Excel para comenzar.")
+    st.info("Adjunta el archivo. por favor.")
           `
         }
       }, document.getElementById("root"));
