@@ -2,10 +2,10 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Panel Concentrix</title>
+    <title>Seguimiento LH - Concentrix</title>
     <link rel="stylesheet" href="https://unpkg.com/@stlite/mountable/build/stlite.css"/>
     <style>
-        body { margin: 0; padding: 0; background-color: #f0f2f6; }
+        body { margin: 0; padding: 0; background-color: #f4f7f6; }
     </style>
   </head>
   <body>
@@ -14,47 +14,146 @@
     <script src="https://unpkg.com/@stlite/mountable/build/stlite.js"></script>
     <script>
       stlite.mount({
-        requirements: ["openpyxl", "pandas"],
-        entrypoint: "app.py", // <-- Aquí está la regla nueva que nos pedía
+        // Añadimos plotly para las gráficas modernas
+        requirements: ["openpyxl", "pandas", "plotly"],
+        entrypoint: "app.py",
         files: {
           "app.py": `
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
-st.set_page_config(page_title="Panel Concentrix", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Panel Concentrix", page_icon="🌐", layout="wide")
 
-st.title("📊 Seguimiento de LH")
-st.write("Sube el archivo de Excel descargado para generar los reportes.")
+# --- ESTILOS VISUALES (COLORES CONCENTRIX) ---
+st.markdown("""
+<style>
+    /* Fondo principal de la app */
+    .stApp {
+        background-color: #F4F7F6;
+    }
+    
+    /* Títulos principales (Azul Marino Concentrix) */
+    h1, h2, h3 {
+        color: #002244 !important;
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: 700 !important;
+    }
+    
+    /* Estilo para los números de las Métricas (Turquesa Concentrix) */
+    div[data-testid="stMetricValue"] {
+        color: #0097A9 !important;
+        font-size: 2.5rem !important;
+        font-weight: 800 !important;
+    }
+    div[data-testid="stMetricLabel"] {
+        color: #002244 !important;
+        font-weight: 600 !important;
+        font-size: 1.1rem !important;
+    }
+    
+    /* Efecto de Tarjeta con sombra para las métricas */
+    div[data-testid="metric-container"] {
+        background-color: white;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border-left: 5px solid #0097A9;
+    }
+    
+    /* Líneas separadoras personalizadas */
+    hr {
+        border-top: 2px solid #0097A9;
+        opacity: 0.3;
+    }
+    
+    /* Botones y subida de archivos */
+    .stButton>button {
+        background-color: #0097A9;
+        color: white;
+        border-radius: 5px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-archivo_subido = st.file_uploader("Arrastra aquí tu base de datos (.xlsx)", type=["xlsx"])
+# --- CABECERA ---
+st.markdown("<h1 style='text-align: center;'>🌐 Seguimiento de LH</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #555; font-size: 1.2rem;'>Sube el archivo de Excel para generar los reportes interactivos.</p>", unsafe_allow_html=True)
+st.markdown("---")
+
+archivo_subido = st.file_uploader("📂 Arrastra aquí tu base de datos (.xlsx)", type=["xlsx"])
 
 if archivo_subido is not None:
-    with st.spinner('Procesando datos... 🚀'):
+    with st.spinner('Procesando base de datos de Concentrix... 🚀'):
         df = pd.read_excel(archivo_subido)
     
-    st.success("¡Archivo cargado con éxito!")
+    st.success("✅ ¡Archivo cargado con éxito!")
+    st.markdown("<br>", unsafe_allow_html=True)
     
+    # --- ZONA DE TARJETAS (MÉTRICAS) ---
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label="Total de Filas", value=len(df))
+        st.metric(label="Total de Filas (Asignaciones)", value=f"{len(df):,}")
     with col2:
         st.metric(label="Total de Columnas", value=len(df.columns))
     with col3:
-        st.metric(label="Estado", value="Procesado")
+        st.metric(label="Estado del Sistema", value="Óptimo")
 
     st.markdown("---")
     
-    st.subheader("Resumen por BU")
-    try:
-        tabla_dinamica = df.groupby('GROUP_NAME').size().reset_index(name='Total Asignaciones')
-        st.dataframe(tabla_dinamica, use_container_width=True)
-    except Exception as e:
-        st.warning("Asegúrate de que tu Excel tenga una columna llamada 'GROUP_NAME'.")
+    # --- ZONA DE FILTROS Y GRÁFICAS ---
+    if 'GROUP_NAME' in df.columns:
+        st.markdown("### 📊 Resumen por Business Unit (BU)")
         
-    st.subheader("Base de datos")
-    st.dataframe(df)
+        # Filtro interactivo
+        lista_bu = df['GROUP_NAME'].dropna().unique()
+        bu_seleccionados = st.multiselect("🔍 Filtra los grupos (BU) que deseas analizar:", lista_bu, default=lista_bu)
+        
+        # Aplicamos el filtro a los datos
+        df_filtrado = df[df['GROUP_NAME'].isin(bu_seleccionados)]
+        
+        # Dividimos la pantalla: Gráfica grande a la izquierda, Tabla pequeña a la derecha
+        col_grafica, col_tabla = st.columns([2, 1])
+        
+        with col_grafica:
+            # Preparamos los datos para la gráfica
+            datos_grafica = df_filtrado.groupby('GROUP_NAME').size().reset_index(name='Total Asignaciones')
+            # Ordenamos de mayor a menor
+            datos_grafica = datos_grafica.sort_values(by='Total Asignaciones', ascending=False)
+            
+            # Dibujamos la gráfica interactiva (con color turquesa)
+            fig = px.bar(
+                datos_grafica, 
+                x='GROUP_NAME', 
+                y='Total Asignaciones', 
+                text_auto=True,
+                color_discrete_sequence=['#0097A9']
+            )
+            # Quitamos el fondo blanco de la gráfica para que se vea moderna
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                xaxis_title="Business Unit",
+                yaxis_title="Total de Asignaciones",
+                font=dict(color="#002244")
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+        with col_tabla:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.dataframe(datos_grafica, use_container_width=True, hide_index=True)
+            
+        st.markdown("---")
+        st.subheader("🗃️ Base de datos (Filtrada)")
+        st.dataframe(df_filtrado, use_container_width=True)
+        
+    else:
+        st.warning("⚠️ Asegúrate de que tu Excel tenga una columna llamada 'GROUP_NAME' para generar la gráfica.")
+        st.subheader("🗃️ Base de datos completa")
+        st.dataframe(df, use_container_width=True)
+
 else:
-    st.info("Adjunta el archivo. por favor.")
+    st.info("💡 Adjunta el archivo por favor para comenzar.")
           `
         }
       }, document.getElementById("root"));
