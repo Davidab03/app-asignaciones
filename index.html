@@ -3,7 +3,6 @@
   <head>
     <meta charset="UTF-8" />
     <title>Panel Concentrix</title>
-    <!-- Nuevo servidor para descargar los estilos (unpkg) -->
     <link rel="stylesheet" href="https://unpkg.com/@stlite/mountable/build/stlite.css"/>
     <style>
         body { margin: 0; padding: 0; background-color: #f0f2f6; }
@@ -12,12 +11,13 @@
   <body>
     <div id="root"></div>
     
-    <!-- Nuevo servidor para descargar el motor de Python (unpkg) -->
     <script src="https://unpkg.com/@stlite/mountable/build/stlite.js"></script>
     <script>
       stlite.mount({
         requirements: ["openpyxl", "pandas"],
-        mainScriptData: `
+        entrypoint: "app.py", // <-- Aquí está la regla nueva que nos pedía
+        files: {
+          "app.py": `
 import streamlit as st
 import pandas as pd
 
@@ -55,7 +55,8 @@ if archivo_subido is not None:
     st.dataframe(df)
 else:
     st.info("Esperando el archivo. Por favor, sube tu Excel para comenzar.")
-        `
+          `
+        }
       }, document.getElementById("root"));
     </script>
   </body>
