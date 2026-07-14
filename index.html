@@ -16,7 +16,6 @@
       stlite.mount({
         requirements: ["openpyxl", "pandas", "plotly"],
         entrypoint: "app.py",
-        // ESTA CONFIGURACIÓN FUERZA EL MODO CLARO Y SOLUCIONA EL CONTRASTE
         streamlitConfig: {
           "theme.base": "light",
           "theme.primaryColor": "#0097A9",
@@ -32,10 +31,8 @@ import plotly.express as px
 
 st.set_page_config(page_title="Panel Concentrix", page_icon="🌐", layout="wide")
 
-# --- ESTILO DE TARJETAS ---
 st.markdown('''
 <style>
-    /* Efecto de Tarjeta flotante con sombra para las métricas */
     div[data-testid="metric-container"] { 
         background-color: white; 
         border-radius: 10px; 
@@ -47,7 +44,6 @@ st.markdown('''
 </style>
 ''', unsafe_allow_html=True)
 
-# --- CABECERA ---
 st.markdown("<h1 style='text-align: center;'>🌐 Seguimiento de LH</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; font-size: 1.1rem;'>Sube el archivo de Excel descargado para generar los reportes y gráficas en tiempo real.</p>", unsafe_allow_html=True)
 st.markdown("---")
@@ -70,15 +66,13 @@ if archivo_subido is not None:
 
     st.markdown("---")
     
-    # --- ZONA DE FILTROS INTERACTIVOS ---
-    st.subheader("🔍 Filtros de Búsqueda")
+    st.subheader("🔍 Filtros de Búsqueda Interactivos")
     
-    # Verificamos que existan las 3 columnas necesarias
     cols_requeridas = ['GROUP_NAME', 'COURSE_NAME', 'COURSE_STATUS']
     cols_presentes = [c for c in cols_requeridas if c in df.columns]
     
     if len(cols_presentes) == 3:
-        # Dividimos los filtros en 3 columnas
+        # Creamos 3 columnas visuales para los filtros
         col_f1, col_f2, col_f3 = st.columns(3)
         
         with col_f1:
@@ -87,26 +81,33 @@ if archivo_subido is not None:
             
         with col_f2:
             lista_status = sorted(df['COURSE_STATUS'].dropna().astype(str).unique())
-            status_seleccionados = st.multiselect("📊 Estado del Curso (COURSE_STATUS):", lista_status, default=lista_status)
+            status_seleccionados = st.multiselect("📊 Estado del Curso:", lista_status, default=lista_status)
             
         with col_f3:
-            # Filtro de texto libre
-            texto_curso = st.text_input("📝 Buscar por Nombre del Curso (COURSE_NAME):", "")
+            # Transformamos el buscador de texto a un buscador desplegable inteligente
+            lista_cursos = sorted(df['COURSE_NAME'].dropna().astype(str).unique())
+            cursos_seleccionados = st.multiselect(
+                "📝 Buscar Curso (Escribe para filtrar):", 
+                lista_cursos, 
+                default=[], 
+                placeholder="Selecciona o escribe un curso..."
+            )
             
-        # --- APLICAMOS LOS FILTROS A LA BASE DE DATOS ---
+        # --- LÓGICA DE FILTRADO INSTANTÁNEO ---
+        # Filtramos primero por BU y Estado
         df_filtrado = df[
             (df['GROUP_NAME'].isin(bu_seleccionados)) & 
             (df['COURSE_STATUS'].isin(status_seleccionados))
         ]
         
-        # Si el usuario escribió algo en el buscador de texto, filtramos también eso
-        if texto_curso.strip():
-            df_filtrado = df_filtrado[df_filtrado['COURSE_NAME'].astype(str).str.contains(texto_curso, case=False, na=False)]
+        # Si el usuario eligió cursos específicos, aplicamos el filtro. 
+        # Si lo dejó en blanco, muestra todos los cursos de esa BU/Estado.
+        if cursos_seleccionados:
+            df_filtrado = df_filtrado[df_filtrado['COURSE_NAME'].isin(cursos_seleccionados)]
             
-        st.markdown(f"**Mostrando {len(df_filtrado)} registros después de filtrar.**")
+        st.markdown(f"**Mostrando {len(df_filtrado):,} registros después de filtrar.**")
         st.markdown("---")
         
-        # --- ZONA DE GRÁFICA (AHORA POR COURSE_STATUS) ---
         if len(df_filtrado) > 0:
             st.subheader("📈 Resumen por Estado del Curso")
             
@@ -116,13 +117,12 @@ if archivo_subido is not None:
                 datos_grafica = df_filtrado.groupby('COURSE_STATUS').size().reset_index(name='Total')
                 datos_grafica = datos_grafica.sort_values(by='Total', ascending=False)
                 
-                # Gráfica interactiva de barras
                 fig = px.bar(
                     datos_grafica, 
                     x='COURSE_STATUS', 
                     y='Total', 
                     text_auto=True,
-                    color='COURSE_STATUS' # Colores automáticos según el estado
+                    color='COURSE_STATUS'
                 )
                 fig.update_layout(
                     plot_bgcolor='rgba(0,0,0,0)',
@@ -141,9 +141,11 @@ if archivo_subido is not None:
         else:
             st.warning("⚠️ No hay registros que coincidan con los filtros seleccionados.")
             
-        # --- TABLA FINAL FILTRADA ---
         st.markdown("---")
         st.subheader("🗃️ Base de Datos (Filtrada)")
+        
+        # Streamlit 1.29+ incluye filtros nativos en las columnas de la tabla.
+        # Usa la lupa en el encabezado de la tabla para filtros rápidos adicionales.
         st.dataframe(df_filtrado, use_container_width=True)
         
     else:
